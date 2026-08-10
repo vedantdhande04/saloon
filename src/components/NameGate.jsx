@@ -11,9 +11,18 @@ export function NameGate({ open, onJoin }) {
     e.preventDefault()
     setBusy(true)
     setError('')
+
+    if (value.trim().toLowerCase() === 'codvyn') {
+      setBusy(false)
+      setError('That name is reserved')
+      return
+    }
+
     const res = await onJoin(value)
     setBusy(false)
-    if (!res?.ok) setError('Enter a name to join the chat')
+    if (!res?.ok) {
+      setError(res?.error === 'That name is reserved' ? res.error : 'Enter a name to join the chat')
+    }
   }
 
   return (

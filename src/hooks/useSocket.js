@@ -29,6 +29,10 @@ export function useSocket() {
           if (res?.ok) {
             setName(res.name)
             setJoined(true)
+          } else {
+            localStorage.removeItem(STORAGE_KEY)
+            setName('')
+            setJoined(false)
           }
         })
       }

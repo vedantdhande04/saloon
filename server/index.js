@@ -43,6 +43,11 @@ io.on('connection', (socket) => {
       return
     }
 
+    if (name.toLowerCase() === 'codvyn') {
+      ack?.({ ok: false, error: 'That name is reserved' })
+      return
+    }
+
     const prev = users.get(socket.id)
     users.set(socket.id, {
       id: socket.id,
