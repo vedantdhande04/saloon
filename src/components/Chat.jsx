@@ -136,7 +136,7 @@ export function Chat({
               coolingDown
                 ? 'Wait a second…'
                 : joined
-                  ? 'Message the saloon…'
+                  ? 'बातचीत…'
                   : 'Enter your name to chat…'
             }
             className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/55"
