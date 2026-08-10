@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { YOUTUBE_PLAYLIST_ID } from '../config'
+import { YOUTUBE_PLAYLIST_ID, YOUTUBE_VIDEO_ID } from '../config'
 
 function loadYouTubeApi() {
   if (window.YT?.Player) return Promise.resolve()
@@ -42,8 +42,8 @@ export function useYouTubePlayer() {
   const [playing, setPlaying] = useState(false)
   const [meta, setMeta] = useState({
     title: 'Loading playlist…',
-    artist: 'Deluxe Saloon',
-    videoId: '',
+    artist: 'Baba Saloon',
+    videoId: YOUTUBE_VIDEO_ID,
     duration: 0,
     current: 0,
   })
@@ -59,6 +59,7 @@ export function useYouTubePlayer() {
       playerRef.current = new window.YT.Player('yt-player', {
         height: '0',
         width: '0',
+        videoId: YOUTUBE_VIDEO_ID,
         playerVars: {
           listType: 'playlist',
           list: YOUTUBE_PLAYLIST_ID,
@@ -75,9 +76,19 @@ export function useYouTubePlayer() {
             setReady(true)
             try {
               event.target.setVolume(80)
+              event.target.cuePlaylist({
+                listType: 'playlist',
+                list: YOUTUBE_PLAYLIST_ID,
+                index: 0,
+              })
               syncMeta(event.target)
             } catch {
-              /* ignore */
+              try {
+                event.target.cueVideoById(YOUTUBE_VIDEO_ID)
+                syncMeta(event.target)
+              } catch {
+                /* ignore */
+              }
             }
           },
           onStateChange: (event) => {
