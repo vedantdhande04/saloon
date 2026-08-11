@@ -1,12 +1,18 @@
 import { Settings } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
-function Bubble({ message, mine }) {
+function keyboardOpen() {
+  const vv = window.visualViewport
+  if (!vv) return false
+  return vv.height < window.innerHeight * 0.85
+}
+
+function Bubble({ message, mine, animate }) {
   const isCodvyn = String(message.name || '').trim().toLowerCase() === 'codvyn'
 
   return (
     <div
-      className={`animate-fade-up max-w-[85%] ${mine && !isCodvyn ? 'self-end' : 'self-start'}`}
+      className={`max-w-[85%] ${animate ? 'animate-fade-up' : ''} ${mine && !isCodvyn ? 'self-end' : 'self-start'}`}
     >
       <div
         className={`rounded-2xl px-3 py-2 text-[13px] leading-snug shadow-sm ${
@@ -61,14 +67,22 @@ export function Chat({
   const scrollRef = useRef(null)
   const stickToBottom = useRef(true)
   const settingsRef = useRef(null)
+  const inputRef = useRef(null)
+  const composingRef = useRef(false)
+  const [composing, setComposing] = useState(false)
+
+  function scrollChatToBottom() {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+  }
 
   useEffect(() => {
     if (!stickToBottom.current) return
-    const el = scrollRef.current
-    if (!el) return
-    // Scroll only the chat list — scrollIntoView can move the page/visual
-    // viewport on mobile and yank the focused input behind the keyboard.
-    el.scrollTop = el.scrollHeight
+    // Programmatic list scrolling while the soft keyboard is up resets the
+    // mobile visual viewport and can hide the composer / dismiss the keyboard.
+    if (composingRef.current || keyboardOpen()) return
+    scrollChatToBottom()
   }, [messages, showRespectNote])
 
   useEffect(() => {
@@ -113,6 +127,7 @@ export function Chat({
 
     setText('')
     stickToBottom.current = true
+    scrollChatToBottom()
     const res = await onSend(value)
 
     if (res?.ok === false && res?.error === 'Slow down') {
@@ -163,7 +178,7 @@ export function Chat({
   }
 
   return (
-    <section className="pointer-events-none absolute inset-x-0 bottom-[6.75rem] z-20 mx-auto flex h-[min(42vh,360px)] w-full max-w-[420px] flex-col justify-end px-4 sm:bottom-32">
+    <section className="pointer-events-none absolute inset-x-0 bottom-[6.75rem] z-20 mx-auto flex h-[min(42%,360px)] w-full max-w-[420px] flex-col justify-end px-4 sm:bottom-32">
       <div className="chat-panel relative min-h-0 flex-1">
         <div
           ref={scrollRef}
@@ -181,17 +196,22 @@ export function Chat({
                 key={message.id}
                 message={message}
                 mine={message.name === name}
+                animate={!composing}
               />
             ))}
 
             {showRespectNote ? (
-              <div className="animate-fade-up self-center rounded-full bg-black/35 px-3 py-1.5 text-center text-[11px] text-white/90">
+              <div
+                className={`self-center rounded-full bg-black/35 px-3 py-1.5 text-center text-[11px] text-white/90 ${composing ? '' : 'animate-fade-up'}`}
+              >
                 Be respectful. Do not harass anyone.
               </div>
             ) : null}
 
             {banned ? (
-              <div className="animate-fade-up self-center rounded-full bg-black/45 px-3 py-1.5 text-center text-[11px] text-white/90">
+              <div
+                className={`self-center rounded-full bg-black/45 px-3 py-1.5 text-center text-[11px] text-white/90 ${composing ? '' : 'animate-fade-up'}`}
+              >
                 You are temporarily banned from chat.
               </div>
             ) : null}
@@ -292,6 +312,7 @@ export function Chat({
             }`}
           >
             <input
+              ref={inputRef}
               value={text}
               onChange={(e) => updateText(e.target.value)}
               onPaste={(e) => {
@@ -304,7 +325,14 @@ export function Chat({
                 updateText(text.slice(0, start) + pasted + text.slice(end))
               }}
               onFocus={() => {
+                composingRef.current = true
+                setComposing(true)
                 if (!joined && !banned) onRequestJoin()
+              }}
+              onBlur={() => {
+                composingRef.current = false
+                setComposing(false)
+                if (stickToBottom.current) scrollChatToBottom()
               }}
               disabled={banned}
               placeholder={

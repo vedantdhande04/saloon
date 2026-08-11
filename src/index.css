@@ -110,6 +110,7 @@ input {
 .chat-scroll {
   scrollbar-width: none;
   -ms-overflow-style: none;
+  overflow-anchor: none;
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0%,
