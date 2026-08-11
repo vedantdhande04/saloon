@@ -5,6 +5,8 @@
   --bg: #ffff00;
   /* Same yellow frame on every device */
   --frame: 10px;
+  /* Soft-keyboard overlap; Chat updates this while composing */
+  --kb-inset: 0px;
   --ink: #ffffff;
   --muted: rgba(255, 255, 255, 0.72);
   --glass: rgba(20, 8, 8, 0.38);

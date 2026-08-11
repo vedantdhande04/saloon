@@ -19,7 +19,10 @@ export function MusicPlayer({
     : null
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center px-3 pb-4 sm:pb-6">
+    <div
+      className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center px-3 pb-4 sm:pb-6"
+      style={{ transform: 'translateY(calc(-1 * var(--kb-inset, 0px)))' }}
+    >
       <div className="pointer-events-auto flex w-full max-w-[720px] items-center gap-3 rounded-full border border-[var(--glass-border)] bg-[var(--glass)] px-3 py-2.5 text-white shadow-[0_16px_50px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:gap-4 sm:px-4 sm:py-3">
         <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-white/10 sm:h-14 sm:w-14">
           {thumb ? (

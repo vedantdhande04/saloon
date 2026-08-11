@@ -1,5 +1,5 @@
 import { Settings } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 function keyboardOpen() {
   const vv = window.visualViewport
@@ -83,6 +83,49 @@ export function Chat({
     // mobile visual viewport and can hide the composer / dismiss the keyboard.
     if (composingRef.current || keyboardOpen()) return
     scrollChatToBottom()
+  }, [messages, showRespectNote])
+
+  // While typing, pin bottom chrome above the keyboard via --kb-inset so a new
+  // bubble cannot shove the composer/player under the soft keyboard.
+  useEffect(() => {
+    const root = document.documentElement
+    if (!composing) {
+      root.style.setProperty('--kb-inset', '0px')
+      return
+    }
+
+    const vv = window.visualViewport
+    const sync = () => {
+      if (!vv) {
+        root.style.setProperty('--kb-inset', '0px')
+        return
+      }
+      const inset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))
+      root.style.setProperty('--kb-inset', `${inset}px`)
+    }
+
+    sync()
+    vv?.addEventListener('resize', sync)
+    vv?.addEventListener('scroll', sync)
+    window.addEventListener('resize', sync)
+    const t1 = window.setTimeout(sync, 120)
+    const t2 = window.setTimeout(sync, 360)
+    return () => {
+      vv?.removeEventListener('resize', sync)
+      vv?.removeEventListener('scroll', sync)
+      window.removeEventListener('resize', sync)
+      window.clearTimeout(t1)
+      window.clearTimeout(t2)
+      root.style.setProperty('--kb-inset', '0px')
+    }
+  }, [composing])
+
+  useLayoutEffect(() => {
+    if (!composingRef.current) return
+    const vv = window.visualViewport
+    if (!vv) return
+    const inset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))
+    document.documentElement.style.setProperty('--kb-inset', `${inset}px`)
   }, [messages, showRespectNote])
 
   useEffect(() => {
@@ -178,7 +221,10 @@ export function Chat({
   }
 
   return (
-    <section className="pointer-events-none absolute inset-x-0 bottom-[6.75rem] z-20 mx-auto flex h-[min(42%,360px)] w-full max-w-[420px] flex-col justify-end px-4 sm:bottom-32">
+    <section
+      className="pointer-events-none absolute inset-x-0 bottom-[6.75rem] z-20 mx-auto flex h-[min(42vh,360px)] w-full max-w-[420px] flex-col justify-end px-4 sm:bottom-32"
+      style={{ transform: 'translateY(calc(-1 * var(--kb-inset, 0px)))' }}
+    >
       <div className="chat-panel relative min-h-0 flex-1">
         <div
           ref={scrollRef}
