@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { YOUTUBE_VIDEO_ID } from '../config'
+import { YOUTUBE_MIX_ID, YOUTUBE_VIDEO_ID } from '../config'
 
 function loadYouTubeApi() {
   if (window.YT?.Player) return Promise.resolve()
@@ -98,8 +98,6 @@ export function useYouTubePlayer() {
           modestbranding: 1,
           rel: 0,
           playsinline: 1,
-          loop: 1,
-          playlist: YOUTUBE_VIDEO_ID,
           origin: window.location.origin,
         },
         events: {
@@ -108,10 +106,19 @@ export function useYouTubePlayer() {
             setReady(true)
             try {
               event.target.setVolume(80)
-              event.target.cueVideoById(YOUTUBE_VIDEO_ID)
+              // Auto-queue similar songs via YouTube Mix, starting at seed track
+              event.target.cuePlaylist({
+                listType: 'playlist',
+                list: YOUTUBE_MIX_ID,
+                index: 0,
+              })
               syncMeta(event.target)
             } catch {
-              /* ignore */
+              try {
+                event.target.cueVideoById(YOUTUBE_VIDEO_ID)
+              } catch {
+                /* ignore */
+              }
             }
 
             let attempts = 0
@@ -119,19 +126,15 @@ export function useYouTubePlayer() {
               attempts += 1
               syncMeta(event.target)
               const data = event.target.getVideoData?.() || {}
-              if (data.title || attempts > 20) window.clearInterval(retry)
-            }, 250)
+              const list = event.target.getPlaylist?.() || []
+              if ((data.title && list.length > 1) || attempts > 24) {
+                window.clearInterval(retry)
+              }
+            }, 300)
           },
           onStateChange: (event) => {
             const state = event.data
             setPlaying(state === window.YT.PlayerState.PLAYING)
-
-            // Loop single track when it ends
-            if (state === window.YT.PlayerState.ENDED) {
-              event.target.seekTo(0, true)
-              event.target.playVideo()
-              return
-            }
 
             if (
               state === window.YT.PlayerState.PLAYING ||
@@ -142,12 +145,19 @@ export function useYouTubePlayer() {
               syncMeta(event.target)
             }
           },
-          onError: () => {
-            setMeta((prev) => ({
-              ...prev,
-              title: 'Track unavailable',
-              artist: 'Open YT Music',
-            }))
+          onError: (event) => {
+            // Mix failed to embed — fall back to the seed track only
+            if (event?.data) {
+              try {
+                event.target.cueVideoById(YOUTUBE_VIDEO_ID)
+              } catch {
+                setMeta((prev) => ({
+                  ...prev,
+                  title: 'Track unavailable',
+                  artist: 'Open YT Music',
+                }))
+              }
+            }
           },
         },
       })
@@ -191,15 +201,21 @@ export function useYouTubePlayer() {
   function next() {
     const player = playerRef.current
     if (!player) return
-    player.seekTo(0, true)
-    player.playVideo()
+    if (player.nextVideo) player.nextVideo()
+    else {
+      player.seekTo(0, true)
+      player.playVideo()
+    }
   }
 
   function prev() {
     const player = playerRef.current
     if (!player) return
-    player.seekTo(0, true)
-    player.playVideo()
+    if (player.previousVideo) player.previousVideo()
+    else {
+      player.seekTo(0, true)
+      player.playVideo()
+    }
   }
 
   function seek(ratio) {
