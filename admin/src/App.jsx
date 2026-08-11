@@ -22,7 +22,7 @@ function Login({ onAuth, error, busy, connected, socketUrl, onRetry }) {
       >
         <h1 className="text-2xl font-bold">Saloon Admin</h1>
         <p className="mt-2 text-sm text-[var(--muted)]">
-          Local-only panel. Enter <code>ADMIN_SECRET</code> to moderate live chat.
+          Enter <code>ADMIN_SECRET</code> to moderate live chat.
         </p>
         <p className="mt-3 text-xs text-[var(--muted)]">
           Server:{' '}

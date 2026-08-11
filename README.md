@@ -12,28 +12,21 @@ npm run dev
 - Web: http://localhost:5173
 - Chat server: http://localhost:3001
 
-## Admin panel (local only — not on Vercel)
+## Admin panel
 
-Moderates live chat via a secret. Never deploy `admin/` to Vercel.
+Moderates live chat via `ADMIN_SECRET`. Hosted as a **separate** Vercel project (not on the public site).
 
-1. Set `ADMIN_SECRET` on Railway (and optionally in a root `.env` for local server).
-2. Copy `admin/.env.example` → `admin/.env` and set:
+- Production: https://saloon-admin-gray.vercel.app
+- Set `ADMIN_SECRET` on Railway.
+- Admin env: `VITE_SOCKET_URL=<railway-url>`
 
-```bash
-VITE_SOCKET_URL=https://saloon-production-9871.up.railway.app
-```
+### Local
 
-(For local server use `http://localhost:3001`.)
+1. Copy `admin/.env.example` → `admin/.env` and set `VITE_SOCKET_URL`.
+2. From repo root: `npm run admin` → http://localhost:5174  
+   Or from `admin/`: `npm install && npm run dev`
 
-3. Run:
-
-```bash
-npm run admin
-```
-
-4. Open http://localhost:5174 and paste `ADMIN_SECRET`.
-
-Admin can: list live users, rename, delete messages, ban IPs (2h/12h/24h), and chat as **codvyn** (yellow bubbles on the public site).
+Admin can: list live users, rename, delete messages, ban IPs (2h/12h/24h), and chat as **codvyn**.
 
 ## Message history
 
@@ -48,12 +41,18 @@ History/bans reset if the chat server restarts.
 - Env: `ADMIN_SECRET=...`
 - Public URL example: `https://saloon-production-9871.up.railway.app`
 
-### Frontend (Vercel)
+### Public frontend (Vercel project `saloon`)
 
 - Framework: Vite
 - Env: `VITE_SOCKET_URL=<railway-url>`
 - Domain: `saloon.codvyn.in`
-- Do **not** deploy the `admin/` folder as a site
+
+### Admin frontend (Vercel project `saloon-admin`)
+
+- Root directory: `admin`
+- Env: `VITE_SOCKET_URL=<railway-url>`
+- URL: https://saloon-admin-gray.vercel.app
+- Redeploy from `admin/`: `npx vercel deploy --prod`
 
 ## Config
 

@@ -15,6 +15,10 @@ export default defineConfig(({ mode }) => {
     root,
     envDir: root,
     plugins: [react(), tailwindcss()],
+    build: {
+      outDir: 'dist',
+      emptyOutDir: true,
+    },
     server: {
       port: 5174,
       strictPort: true,
