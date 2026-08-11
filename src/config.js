@@ -1,8 +1,6 @@
-// Main saloon track — YouTube Mix (RD + videoId) continues as a playlist
-export const YOUTUBE_VIDEO_ID = 'uIYFObB-yv0'
-export const YOUTUBE_PLAYLIST_ID = `RD${YOUTUBE_VIDEO_ID}`
+export const YOUTUBE_PLAYLIST_ID = 'PLTJ1PnzCWyFw'
 
 export const LINKS = {
-  ytMusic: `https://music.youtube.com/watch?v=${YOUTUBE_VIDEO_ID}`,
+  ytMusic: `https://music.youtube.com/playlist?list=${YOUTUBE_PLAYLIST_ID}`,
   codvyn: 'https://www.instagram.com/codvyn/',
 }
