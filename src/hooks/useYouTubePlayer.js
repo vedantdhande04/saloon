@@ -20,13 +20,22 @@ function loadYouTubeApi() {
   })
 }
 
-function parseTitle(raw) {
-  const title = raw || 'Saloon song'
-  const parts = title.split(' - ')
+function parseMeta(data = {}) {
+  const raw = String(data.title || '').trim()
+  if (!raw) return null
+
+  const parts = raw.split(' - ')
   if (parts.length >= 2) {
-    return { title: parts[0].trim(), artist: parts.slice(1).join(' - ').trim() }
+    return {
+      title: parts[0].trim(),
+      artist: parts.slice(1).join(' - ').trim() || data.author || 'Unknown',
+    }
   }
-  return { title, artist: 'Unknown' }
+
+  return {
+    title: raw,
+    artist: data.author || 'Unknown',
+  }
 }
 
 function formatTime(seconds) {
@@ -51,17 +60,38 @@ export function useYouTubePlayer() {
   useEffect(() => {
     let cancelled = false
     let tick
+    let retry
+
+    function syncMeta(player) {
+      try {
+        const data = player.getVideoData?.() || {}
+        const parsed = parseMeta(data)
+        if (!parsed) return
+
+        setMeta((prev) => ({
+          ...prev,
+          title: parsed.title,
+          artist: parsed.artist,
+          videoId: data.video_id || prev.videoId,
+          duration: player.getDuration?.() || prev.duration,
+          current: player.getCurrentTime?.() || prev.current,
+        }))
+      } catch {
+        /* ignore */
+      }
+    }
 
     async function init() {
       await loadYouTubeApi()
       if (cancelled) return
 
+      const host = document.getElementById('yt-player')
+      if (!host) return
+
       playerRef.current = new window.YT.Player('yt-player', {
-        height: '0',
-        width: '0',
+        height: '180',
+        width: '320',
         playerVars: {
-          listType: 'playlist',
-          list: YOUTUBE_PLAYLIST_ID,
           autoplay: 0,
           controls: 0,
           disablekb: 1,
@@ -69,9 +99,11 @@ export function useYouTubePlayer() {
           modestbranding: 1,
           rel: 0,
           playsinline: 1,
+          origin: window.location.origin,
         },
         events: {
           onReady: (event) => {
+            if (cancelled) return
             setReady(true)
             try {
               event.target.setVolume(80)
@@ -80,10 +112,20 @@ export function useYouTubePlayer() {
                 list: YOUTUBE_PLAYLIST_ID,
                 index: 0,
               })
-              syncMeta(event.target)
             } catch {
               /* ignore */
             }
+
+            // Metadata often arrives a moment after cue
+            let attempts = 0
+            retry = window.setInterval(() => {
+              attempts += 1
+              syncMeta(event.target)
+              const data = event.target.getVideoData?.() || {}
+              if (data.title || attempts > 20) {
+                window.clearInterval(retry)
+              }
+            }, 250)
           },
           onStateChange: (event) => {
             const state = event.data
@@ -96,6 +138,13 @@ export function useYouTubePlayer() {
             ) {
               syncMeta(event.target)
             }
+          },
+          onError: () => {
+            setMeta((prev) => ({
+              ...prev,
+              title: 'Playlist unavailable',
+              artist: 'Try YT Music link',
+            }))
           },
         },
       })
@@ -115,28 +164,12 @@ export function useYouTubePlayer() {
       }, 500)
     }
 
-    function syncMeta(player) {
-      try {
-        const data = player.getVideoData?.() || {}
-        const parsed = parseTitle(data.title)
-        setMeta((prev) => ({
-          ...prev,
-          title: parsed.title,
-          artist: parsed.artist,
-          videoId: data.video_id || prev.videoId,
-          duration: player.getDuration?.() || prev.duration,
-          current: player.getCurrentTime?.() || prev.current,
-        }))
-      } catch {
-        /* ignore */
-      }
-    }
-
     init()
 
     return () => {
       cancelled = true
       if (tick) window.clearInterval(tick)
+      if (retry) window.clearInterval(retry)
       try {
         playerRef.current?.destroy?.()
       } catch {

@@ -94,10 +94,6 @@ export function MusicPlayer({
         </div>
       </div>
 
-      {/* Hidden YouTube host */}
-      <div className="pointer-events-none absolute h-0 w-0 overflow-hidden opacity-0">
-        <div id="yt-player" />
-      </div>
     </div>
   )
 }

@@ -21,6 +21,14 @@ export default function App() {
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-[var(--bg)]">
+      {/* Off-screen but sized — YouTube playlist API fails in a 0×0 iframe */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed -left-[9999px] top-0 h-[180px] w-[320px] overflow-hidden opacity-0"
+      >
+        <div id="yt-player" />
+      </div>
+
       <div className="bg-stage" aria-hidden="true">
         <img src="/bg.jpg" alt="" />
       </div>
