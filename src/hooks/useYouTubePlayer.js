@@ -86,6 +86,8 @@ export function useYouTubePlayer() {
       if (cancelled) return
       if (!document.getElementById('yt-player')) return
 
+      let shuffledOnce = false
+
       playerRef.current = new window.YT.Player('yt-player', {
         height: '180',
         width: '320',
@@ -106,7 +108,7 @@ export function useYouTubePlayer() {
             setReady(true)
             try {
               event.target.setVolume(80)
-              // Auto-queue similar songs via YouTube Mix, starting at seed track
+              // Cue YouTube Mix; once loaded we shuffle + random start (no autoplay)
               event.target.cuePlaylist({
                 listType: 'playlist',
                 list: YOUTUBE_MIX_ID,
@@ -127,7 +129,26 @@ export function useYouTubePlayer() {
               syncMeta(event.target)
               const data = event.target.getVideoData?.() || {}
               const list = event.target.getPlaylist?.() || []
-              if ((data.title && list.length > 1) || attempts > 24) {
+
+              if (!shuffledOnce && list.length > 1) {
+                shuffledOnce = true
+                try {
+                  event.target.setShuffle?.(true)
+                  const index = Math.floor(Math.random() * list.length)
+                  event.target.cuePlaylist({
+                    listType: 'playlist',
+                    list: YOUTUBE_MIX_ID,
+                    index,
+                  })
+                  // Keep shuffle on after re-cue
+                  event.target.setShuffle?.(true)
+                  syncMeta(event.target)
+                } catch {
+                  /* keep whatever is already cued */
+                }
+              }
+
+              if ((data.title && (shuffledOnce || list.length > 1)) || attempts > 24) {
                 window.clearInterval(retry)
               }
             }, 300)
