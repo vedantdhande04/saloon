@@ -8,7 +8,7 @@ function formatUntil(until) {
   return new Date(until).toLocaleString()
 }
 
-function Login({ onAuth, error, busy }) {
+function Login({ onAuth, error, busy, connected, socketUrl, onRetry }) {
   const [secret, setSecret] = useState(() => sessionStorage.getItem(SECRET_KEY) || '')
 
   return (
@@ -24,6 +24,14 @@ function Login({ onAuth, error, busy }) {
         <p className="mt-2 text-sm text-[var(--muted)]">
           Local-only panel. Enter <code>ADMIN_SECRET</code> to moderate live chat.
         </p>
+        <p className="mt-3 text-xs text-[var(--muted)]">
+          Server:{' '}
+          <span className={connected ? 'text-emerald-400' : 'text-[var(--danger)]'}>
+            {connected ? 'connected' : 'not connected'}
+          </span>
+          <br />
+          <span className="break-all opacity-80">{socketUrl}</span>
+        </p>
         <input
           type="password"
           value={secret}
@@ -33,13 +41,24 @@ function Login({ onAuth, error, busy }) {
           autoFocus
         />
         {error ? <p className="mt-2 text-sm text-[var(--danger)]">{error}</p> : null}
-        <button
-          type="submit"
-          disabled={busy || !secret.trim()}
-          className="mt-4 w-full rounded-xl bg-[var(--accent)] px-3 py-2.5 font-semibold text-black disabled:opacity-50"
-        >
-          {busy ? 'Connecting…' : 'Unlock admin'}
-        </button>
+        <div className="mt-4 flex gap-2">
+          <button
+            type="submit"
+            disabled={busy || !secret.trim() || !connected}
+            className="flex-1 rounded-xl bg-[var(--accent)] px-3 py-2.5 font-semibold text-black disabled:opacity-50"
+          >
+            {busy ? 'Unlocking…' : 'Unlock admin'}
+          </button>
+          {!connected ? (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="rounded-xl border border-[var(--line)] px-3 py-2.5 text-sm hover:bg-white/5"
+            >
+              Retry
+            </button>
+          ) : null}
+        </div>
       </form>
     </div>
   )
@@ -56,14 +75,43 @@ export default function App() {
   const [bans, setBans] = useState([])
   const [composer, setComposer] = useState('')
   const [renameDrafts, setRenameDrafts] = useState({})
+  const [connKey, setConnKey] = useState(0)
 
-  const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001'
+  // Direct to Railway (CORS allows localhost). Avoid brittle WS proxy.
+  const socketUrl =
+    import.meta.env.VITE_SOCKET_URL ||
+    'https://saloon-production-9871.up.railway.app'
+  const displayUrl = socketUrl
 
   useEffect(() => {
-    const socket = io(socketUrl, { transports: ['websocket', 'polling'] })
+    const socket = io(socketUrl, {
+      transports: ['polling', 'websocket'],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      timeout: 15000,
+    })
     socketRef.current = socket
 
-    socket.on('connect', () => setConnected(true))
+    socket.on('connect', () => {
+      setConnected(true)
+      setError('')
+      const saved = sessionStorage.getItem(SECRET_KEY)
+      if (!saved) return
+      socket.emit('admin:auth', saved, (res) => {
+        if (res?.ok) {
+          setAuthed(true)
+          setUsers(res.users || [])
+          setMessages(res.messages || [])
+          setBans(res.bans || [])
+        } else {
+          sessionStorage.removeItem(SECRET_KEY)
+        }
+      })
+    })
+    socket.on('connect_error', (err) => {
+      setConnected(false)
+      setError(err?.message || 'Cannot reach chat server')
+    })
     socket.on('disconnect', () => {
       setConnected(false)
       setAuthed(false)
@@ -78,30 +126,20 @@ export default function App() {
       setMessages((prev) => prev.filter((m) => m.id !== id))
     })
 
-    const saved = sessionStorage.getItem(SECRET_KEY)
-    if (saved) {
-      socket.emit('admin:auth', saved, (res) => {
-        if (res?.ok) {
-          setAuthed(true)
-          setUsers(res.users || [])
-          setMessages(res.messages || [])
-          setBans(res.bans || [])
-        } else {
-          sessionStorage.removeItem(SECRET_KEY)
-        }
-      })
-    }
-
     return () => {
       socket.disconnect()
       socketRef.current = null
     }
-  }, [socketUrl])
+  }, [socketUrl, connKey])
 
   function auth(secret) {
+    if (!socketRef.current?.connected) {
+      setError('Cannot reach chat server. Click Retry or check Railway / admin/.env')
+      return
+    }
     setBusy(true)
     setError('')
-    socketRef.current?.emit('admin:auth', secret, (res) => {
+    socketRef.current.emit('admin:auth', secret, (res) => {
       setBusy(false)
       if (res?.ok) {
         sessionStorage.setItem(SECRET_KEY, secret)
@@ -120,6 +158,14 @@ export default function App() {
     setAuthed(false)
     socketRef.current?.disconnect()
     window.location.reload()
+  }
+
+  function retryConnect() {
+    setError('')
+    setConnected(false)
+    setAuthed(false)
+    socketRef.current?.disconnect()
+    setConnKey((k) => k + 1)
   }
 
   function renameUser(socketId) {
@@ -168,7 +214,16 @@ export default function App() {
   )
 
   if (!authed) {
-    return <Login onAuth={auth} error={error} busy={busy || !connected} />
+    return (
+      <Login
+        onAuth={auth}
+        error={error}
+        busy={busy}
+        connected={connected}
+        socketUrl={displayUrl}
+        onRetry={retryConnect}
+      />
+    )
   }
 
   return (
@@ -178,7 +233,7 @@ export default function App() {
           <h1 className="text-2xl font-bold">Saloon Admin</h1>
           <p className="text-sm text-[var(--muted)]">
             Chatting as <span className="text-[var(--accent)]">codvyn</span> ·{' '}
-            {connected ? 'connected' : 'disconnected'} · {socketUrl}
+            {connected ? 'connected' : 'disconnected'} · {displayUrl}
           </p>
         </div>
         <button

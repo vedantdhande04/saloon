@@ -1,29 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
 
 function Bubble({ message, mine }) {
-  const isCodvyn = message.name?.toLowerCase() === 'codvyn'
+  const isCodvyn = String(message.name || '').trim().toLowerCase() === 'codvyn'
 
   return (
     <div
-      className={`animate-fade-up max-w-[85%] ${mine ? 'self-end' : 'self-start'}`}
+      className={`animate-fade-up max-w-[85%] ${mine && !isCodvyn ? 'self-end' : 'self-start'}`}
     >
       <div
         className={`rounded-2xl px-3 py-2 text-[13px] leading-snug shadow-sm ${
           isCodvyn
-            ? 'rounded-bl-md border border-[#e6c200]/70 bg-[#fff200] text-[var(--ink-dark)]'
+            ? 'rounded-bl-md border border-[var(--bubble-codvyn-border)] bg-[var(--bubble-codvyn)] text-[var(--ink-dark)]'
             : mine
               ? 'rounded-br-md bg-[var(--bubble-me)] text-[var(--ink-dark)]'
               : 'rounded-bl-md bg-[var(--bubble-them)] text-[var(--ink-dark)]'
         }`}
       >
-        {!mine || isCodvyn ? (
+        {isCodvyn || !mine ? (
           <div
             className={`mb-0.5 text-[11px] font-semibold ${
-              isCodvyn ? 'text-[#7a5a00]' : 'text-[#b45309]'
+              isCodvyn ? 'text-[var(--bubble-codvyn-name)]' : 'text-[#b45309]'
             }`}
           >
             {message.name}
-            {isCodvyn ? ' · admin' : ''}
           </div>
         ) : null}
         <div className="whitespace-pre-wrap break-words">{message.text}</div>

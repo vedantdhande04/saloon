@@ -11,6 +11,10 @@
   --glass-border: rgba(255, 255, 255, 0.18);
   --bubble-me: #dcf8c6;
   --bubble-them: rgba(255, 255, 255, 0.94);
+  /* Soft gold for codvyn — readable dark text */
+  --bubble-codvyn: #e4cf7a;
+  --bubble-codvyn-border: #c4a84a;
+  --bubble-codvyn-name: #5c4518;
   --ink-dark: #1a1210;
   --btn-ink: #111111;
 }
