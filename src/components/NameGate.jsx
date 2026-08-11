@@ -21,7 +21,9 @@ export function NameGate({ open, onJoin }) {
     const res = await onJoin(value)
     setBusy(false)
     if (!res?.ok) {
-      setError(res?.error === 'That name is reserved' ? res.error : 'Enter a name to join the chat')
+      if (res?.error === 'That name is reserved') setError(res.error)
+      else if (res?.error === 'Banned') setError('You are temporarily banned')
+      else setError('Enter a name to join the chat')
     }
   }
 

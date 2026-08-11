@@ -1,20 +1,29 @@
 import { useEffect, useRef, useState } from 'react'
 
 function Bubble({ message, mine }) {
+  const isCodvyn = message.name?.toLowerCase() === 'codvyn'
+
   return (
     <div
       className={`animate-fade-up max-w-[85%] ${mine ? 'self-end' : 'self-start'}`}
     >
       <div
         className={`rounded-2xl px-3 py-2 text-[13px] leading-snug shadow-sm ${
-          mine
-            ? 'rounded-br-md bg-[var(--bubble-me)] text-[var(--ink-dark)]'
-            : 'rounded-bl-md bg-[var(--bubble-them)] text-[var(--ink-dark)]'
+          isCodvyn
+            ? 'rounded-bl-md border border-[#e6c200]/70 bg-[#fff200] text-[var(--ink-dark)]'
+            : mine
+              ? 'rounded-br-md bg-[var(--bubble-me)] text-[var(--ink-dark)]'
+              : 'rounded-bl-md bg-[var(--bubble-them)] text-[var(--ink-dark)]'
         }`}
       >
-        {!mine ? (
-          <div className="mb-0.5 text-[11px] font-semibold text-[#b45309]">
+        {!mine || isCodvyn ? (
+          <div
+            className={`mb-0.5 text-[11px] font-semibold ${
+              isCodvyn ? 'text-[#7a5a00]' : 'text-[#b45309]'
+            }`}
+          >
             {message.name}
+            {isCodvyn ? ' · admin' : ''}
           </div>
         ) : null}
         <div className="whitespace-pre-wrap break-words">{message.text}</div>
@@ -28,6 +37,7 @@ export function Chat({
   name,
   messages,
   showRespectNote,
+  bannedUntil,
   onSend,
   onRequestJoin,
 }) {
@@ -43,6 +53,7 @@ export function Chat({
   }, [messages, showRespectNote])
 
   const overLimit = text.length > 255
+  const banned = bannedUntil > Date.now()
 
   function updateText(value) {
     setText(value)
@@ -50,6 +61,7 @@ export function Chat({
 
   async function handleSubmit(e) {
     e.preventDefault()
+    if (banned) return
     if (!joined) {
       onRequestJoin()
       return
@@ -101,6 +113,12 @@ export function Chat({
               </div>
             ) : null}
 
+            {banned ? (
+              <div className="animate-fade-up self-center rounded-full bg-black/45 px-3 py-1.5 text-center text-[11px] text-white/90">
+                You are temporarily banned from chat.
+              </div>
+            ) : null}
+
             <div ref={endRef} />
           </div>
         </div>
@@ -119,8 +137,6 @@ export function Chat({
             value={text}
             onChange={(e) => updateText(e.target.value)}
             onPaste={(e) => {
-              // Let the paste land, then onChange picks up the full value
-              // (including over-limit paste) so the red state still shows.
               const pasted = e.clipboardData?.getData('text') ?? ''
               if (!pasted) return
               e.preventDefault()
@@ -130,20 +146,23 @@ export function Chat({
               updateText(text.slice(0, start) + pasted + text.slice(end))
             }}
             onFocus={() => {
-              if (!joined) onRequestJoin()
+              if (!joined && !banned) onRequestJoin()
             }}
+            disabled={banned}
             placeholder={
-              coolingDown
-                ? 'Wait a second…'
-                : joined
-                  ? 'बातचीत…'
-                  : 'Enter your name to chat…'
+              banned
+                ? 'Banned from chat…'
+                : coolingDown
+                  ? 'Wait a second…'
+                  : joined
+                    ? 'बातचीत…'
+                    : 'Enter your name to chat…'
             }
-            className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/55"
+            className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/55 disabled:opacity-60"
           />
           <button
             type="submit"
-            disabled={coolingDown || overLimit}
+            disabled={coolingDown || overLimit || banned}
             className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[var(--btn-ink)] transition hover:bg-white/90 disabled:opacity-50"
           >
             Send

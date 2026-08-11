@@ -12,45 +12,49 @@ npm run dev
 - Web: http://localhost:5173
 - Chat server: http://localhost:3001
 
+## Admin panel (local only — not on Vercel)
+
+Moderates live chat via a secret. Never deploy `admin/` to Vercel.
+
+1. Set `ADMIN_SECRET` on Railway (and optionally in a root `.env` for local server).
+2. Copy `admin/.env.example` → `admin/.env` and set:
+
+```bash
+VITE_SOCKET_URL=https://saloon-production-9871.up.railway.app
+```
+
+(For local server use `http://localhost:3001`.)
+
+3. Run:
+
+```bash
+npm run admin
+```
+
+4. Open http://localhost:5174 and paste `ADMIN_SECRET`.
+
+Admin can: list live users, rename, delete messages, ban IPs (2h/12h/24h), and chat as **codvyn** (yellow bubbles on the public site).
+
 ## Message history
 
 Server keeps the **last 100 messages in memory** and sends them to anyone who joins.  
-History resets if the chat server restarts (unless you later add Redis).
-
-## Why a separate prod socket server?
-
-Chat needs an always-on WebSocket process so everyone shares the same room.  
-Vercel is great for the static React site, but a classic Socket.io room is simpler and more reliable on a small always-on host (Railway / Render / Fly).
-
-```
-saloon.codvyn.in  →  Vercel (frontend)
-saloon-api.codvyn.in  →  Railway/Render (Socket.io server)
-```
-
-Set `VITE_SOCKET_URL` on Vercel to the API URL.
+History/bans reset if the chat server restarts.
 
 ## Deploy
 
-### 1) Chat server (Railway / Render)
+### Chat server (Railway)
 
-- Root start command: `node server/index.js`
-- Expose port from `PORT` (Railway sets this automatically)
-- Optional custom domain: `saloon-api.codvyn.in`
+- Start: `node server/index.js` (Dockerfile included)
+- Env: `ADMIN_SECRET=...`
+- Public URL example: `https://saloon-production-9871.up.railway.app`
 
-### 2) Frontend (Vercel)
+### Frontend (Vercel)
 
-- Import this repo
 - Framework: Vite
-- Env: `VITE_SOCKET_URL=https://saloon-api.codvyn.in`
-- Custom domain: `saloon.codvyn.in`
-
-### 3) DNS (codvyn.in)
-
-At your domain DNS:
-
-- `saloon` CNAME → Vercel (`cname.vercel-dns.com` or what Vercel shows)
-- `saloon-api` CNAME → Railway/Render target
+- Env: `VITE_SOCKET_URL=<railway-url>`
+- Domain: `saloon.codvyn.in`
+- Do **not** deploy the `admin/` folder as a site
 
 ## Config
 
-Edit `src/config.js` for playlist + Spotify / YT Music / Instagram links.
+Edit `src/config.js` for the YouTube track / YT Music / Instagram links.

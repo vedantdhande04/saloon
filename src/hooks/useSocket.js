@@ -11,10 +11,9 @@ export function useSocket() {
   const [joined, setJoined] = useState(false)
   const [showRespectNote, setShowRespectNote] = useState(false)
   const [connected, setConnected] = useState(false)
+  const [bannedUntil, setBannedUntil] = useState(0)
 
   useEffect(() => {
-    // Dev: Vite proxies `/socket.io` → localhost:3001
-    // Prod: set VITE_SOCKET_URL to your always-on chat server
     const socketUrl = import.meta.env.VITE_SOCKET_URL || '/'
     const socket = io(socketUrl, {
       transports: ['websocket', 'polling'],
@@ -33,6 +32,9 @@ export function useSocket() {
             localStorage.removeItem(STORAGE_KEY)
             setName('')
             setJoined(false)
+            if (res?.error === 'Banned') {
+              setBannedUntil(res.until || Date.now())
+            }
           }
         })
       }
@@ -43,6 +45,20 @@ export function useSocket() {
     socket.on('chat:history', (history) => setMessages(history || []))
     socket.on('chat:message', (message) => {
       setMessages((prev) => [...prev.slice(-99), message])
+    })
+    socket.on('chat:deleted', ({ id }) => {
+      setMessages((prev) => prev.filter((m) => m.id !== id))
+    })
+    socket.on('chat:renamed', ({ name: nextName }) => {
+      if (!nextName) return
+      setName(nextName)
+      localStorage.setItem(STORAGE_KEY, nextName)
+    })
+    socket.on('chat:banned', ({ until }) => {
+      setBannedUntil(until || Date.now())
+      setJoined(false)
+      setName('')
+      localStorage.removeItem(STORAGE_KEY)
     })
 
     return () => {
@@ -64,8 +80,11 @@ export function useSocket() {
           localStorage.setItem(STORAGE_KEY, res.name)
           setName(res.name)
           setJoined(true)
+          setBannedUntil(0)
           setShowRespectNote(true)
           window.setTimeout(() => setShowRespectNote(false), 4500)
+        } else if (res?.error === 'Banned') {
+          setBannedUntil(res.until || Date.now())
         }
         resolve(res || { ok: false })
       })
@@ -89,6 +108,7 @@ export function useSocket() {
     joined,
     connected,
     showRespectNote,
+    bannedUntil,
     joinChat,
     sendMessage,
   }

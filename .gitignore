@@ -14,7 +14,10 @@ dist-ssr
 .env
 .env.*
 !.env.example
+!admin/.env.example
 Screenshot*.png
+admin/dist
+
 
 # Editor directories and files
 .vscode/*
@@ -26,3 +29,5 @@ Screenshot*.png
 *.njsproj
 *.sln
 *.sw?
+
+.vercel

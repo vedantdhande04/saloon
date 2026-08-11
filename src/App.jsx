@@ -14,6 +14,7 @@ export default function App() {
     name,
     joined,
     showRespectNote,
+    bannedUntil,
     joinChat,
     sendMessage,
   } = useSocket()
@@ -46,6 +47,7 @@ export default function App() {
         name={name}
         messages={messages}
         showRespectNote={showRespectNote}
+        bannedUntil={bannedUntil}
         onSend={sendMessage}
         onRequestJoin={() => setAskName(true)}
       />
