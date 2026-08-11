@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { YOUTUBE_PLAYLIST_ID } from '../config'
+import { YOUTUBE_VIDEO_ID } from '../config'
 
 function loadYouTubeApi() {
   if (window.YT?.Player) return Promise.resolve()
@@ -50,9 +50,9 @@ export function useYouTubePlayer() {
   const [ready, setReady] = useState(false)
   const [playing, setPlaying] = useState(false)
   const [meta, setMeta] = useState({
-    title: 'Loading playlist…',
+    title: 'Loading…',
     artist: 'Baba Saloon',
-    videoId: '',
+    videoId: YOUTUBE_VIDEO_ID,
     duration: 0,
     current: 0,
   })
@@ -84,13 +84,12 @@ export function useYouTubePlayer() {
     async function init() {
       await loadYouTubeApi()
       if (cancelled) return
-
-      const host = document.getElementById('yt-player')
-      if (!host) return
+      if (!document.getElementById('yt-player')) return
 
       playerRef.current = new window.YT.Player('yt-player', {
         height: '180',
         width: '320',
+        videoId: YOUTUBE_VIDEO_ID,
         playerVars: {
           autoplay: 0,
           controls: 0,
@@ -99,6 +98,8 @@ export function useYouTubePlayer() {
           modestbranding: 1,
           rel: 0,
           playsinline: 1,
+          loop: 1,
+          playlist: YOUTUBE_VIDEO_ID,
           origin: window.location.origin,
         },
         events: {
@@ -107,29 +108,31 @@ export function useYouTubePlayer() {
             setReady(true)
             try {
               event.target.setVolume(80)
-              event.target.cuePlaylist({
-                listType: 'playlist',
-                list: YOUTUBE_PLAYLIST_ID,
-                index: 0,
-              })
+              event.target.cueVideoById(YOUTUBE_VIDEO_ID)
+              syncMeta(event.target)
             } catch {
               /* ignore */
             }
 
-            // Metadata often arrives a moment after cue
             let attempts = 0
             retry = window.setInterval(() => {
               attempts += 1
               syncMeta(event.target)
               const data = event.target.getVideoData?.() || {}
-              if (data.title || attempts > 20) {
-                window.clearInterval(retry)
-              }
+              if (data.title || attempts > 20) window.clearInterval(retry)
             }, 250)
           },
           onStateChange: (event) => {
             const state = event.data
             setPlaying(state === window.YT.PlayerState.PLAYING)
+
+            // Loop single track when it ends
+            if (state === window.YT.PlayerState.ENDED) {
+              event.target.seekTo(0, true)
+              event.target.playVideo()
+              return
+            }
+
             if (
               state === window.YT.PlayerState.PLAYING ||
               state === window.YT.PlayerState.PAUSED ||
@@ -142,8 +145,8 @@ export function useYouTubePlayer() {
           onError: () => {
             setMeta((prev) => ({
               ...prev,
-              title: 'Playlist unavailable',
-              artist: 'Try YT Music link',
+              title: 'Track unavailable',
+              artist: 'Open YT Music',
             }))
           },
         },
@@ -186,11 +189,17 @@ export function useYouTubePlayer() {
   }
 
   function next() {
-    playerRef.current?.nextVideo?.()
+    const player = playerRef.current
+    if (!player) return
+    player.seekTo(0, true)
+    player.playVideo()
   }
 
   function prev() {
-    playerRef.current?.previousVideo?.()
+    const player = playerRef.current
+    if (!player) return
+    player.seekTo(0, true)
+    player.playVideo()
   }
 
   function seek(ratio) {

@@ -1,6 +1,6 @@
-export const YOUTUBE_PLAYLIST_ID = 'PLTJ1PnzCWyFw'
+export const YOUTUBE_VIDEO_ID = '5MIGQBpVeqs'
 
 export const LINKS = {
-  ytMusic: `https://music.youtube.com/playlist?list=${YOUTUBE_PLAYLIST_ID}`,
+  ytMusic: `https://music.youtube.com/watch?v=${YOUTUBE_VIDEO_ID}`,
   codvyn: 'https://www.instagram.com/codvyn/',
 }
