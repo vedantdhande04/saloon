@@ -15,8 +15,10 @@ export default function App() {
     joined,
     showRespectNote,
     bannedUntil,
+    renameAvailableAt,
     joinChat,
     sendMessage,
+    renameSelf,
   } = useSocket()
   const player = useYouTubePlayer()
 
@@ -48,7 +50,9 @@ export default function App() {
         messages={messages}
         showRespectNote={showRespectNote}
         bannedUntil={bannedUntil}
+        renameAvailableAt={renameAvailableAt}
         onSend={sendMessage}
+        onRename={renameSelf}
         onRequestJoin={() => setAskName(true)}
       />
 

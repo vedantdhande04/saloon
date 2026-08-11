@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { io } from 'socket.io-client'
 
 const STORAGE_KEY = 'saloon-name'
+const RENAME_KEY = 'saloon-rename-available-at'
 
 export function useSocket() {
   const socketRef = useRef(null)
@@ -12,6 +13,10 @@ export function useSocket() {
   const [showRespectNote, setShowRespectNote] = useState(false)
   const [connected, setConnected] = useState(false)
   const [bannedUntil, setBannedUntil] = useState(0)
+  const [renameAvailableAt, setRenameAvailableAt] = useState(() => {
+    const raw = Number(localStorage.getItem(RENAME_KEY) || 0)
+    return raw > Date.now() ? raw : 0
+  })
 
   useEffect(() => {
     const socketUrl = import.meta.env.VITE_SOCKET_URL || '/'
@@ -28,6 +33,10 @@ export function useSocket() {
           if (res?.ok) {
             setName(res.name)
             setJoined(true)
+            const nextAt = res.renameAvailableAt || 0
+            setRenameAvailableAt(nextAt)
+            if (nextAt) localStorage.setItem(RENAME_KEY, String(nextAt))
+            else localStorage.removeItem(RENAME_KEY)
           } else {
             localStorage.removeItem(STORAGE_KEY)
             setName('')
@@ -49,10 +58,14 @@ export function useSocket() {
     socket.on('chat:deleted', ({ id }) => {
       setMessages((prev) => prev.filter((m) => m.id !== id))
     })
-    socket.on('chat:renamed', ({ name: nextName }) => {
+    socket.on('chat:renamed', ({ name: nextName, renameAvailableAt: nextAt }) => {
       if (!nextName) return
       setName(nextName)
       localStorage.setItem(STORAGE_KEY, nextName)
+      if (nextAt) {
+        setRenameAvailableAt(nextAt)
+        localStorage.setItem(RENAME_KEY, String(nextAt))
+      }
     })
     socket.on('chat:banned', ({ until }) => {
       setBannedUntil(until || Date.now())
@@ -81,6 +94,10 @@ export function useSocket() {
           setName(res.name)
           setJoined(true)
           setBannedUntil(0)
+          const nextAt = res.renameAvailableAt || 0
+          setRenameAvailableAt(nextAt)
+          if (nextAt) localStorage.setItem(RENAME_KEY, String(nextAt))
+          else localStorage.removeItem(RENAME_KEY)
           setShowRespectNote(true)
           window.setTimeout(() => setShowRespectNote(false), 4500)
         } else if (res?.error === 'Banned') {
@@ -101,6 +118,28 @@ export function useSocket() {
     })
   }
 
+  function renameSelf(rawName) {
+    return new Promise((resolve) => {
+      if (!socketRef.current) {
+        resolve({ ok: false })
+        return
+      }
+      socketRef.current.emit('chat:rename', rawName, (res) => {
+        if (res?.ok) {
+          setName(res.name)
+          localStorage.setItem(STORAGE_KEY, res.name)
+          const nextAt = res.renameAvailableAt || 0
+          setRenameAvailableAt(nextAt)
+          if (nextAt) localStorage.setItem(RENAME_KEY, String(nextAt))
+        } else if (res?.renameAvailableAt) {
+          setRenameAvailableAt(res.renameAvailableAt)
+          localStorage.setItem(RENAME_KEY, String(res.renameAvailableAt))
+        }
+        resolve(res || { ok: false })
+      })
+    })
+  }
+
   return {
     online,
     messages,
@@ -109,7 +148,9 @@ export function useSocket() {
     connected,
     showRespectNote,
     bannedUntil,
+    renameAvailableAt,
     joinChat,
     sendMessage,
+    renameSelf,
   }
 }

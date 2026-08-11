@@ -15,6 +15,7 @@ const io = new Server(httpServer, {
 const ADMIN_SECRET = String(process.env.ADMIN_SECRET || '').trim()
 const MAX_MESSAGES = 100
 const MESSAGE_COOLDOWN_MS = 1000
+const RENAME_COOLDOWN_MS = 30 * 60 * 1000
 const RESERVED_NAME = 'codvyn'
 
 /** @type {Map<string, { id: string, name: string | null, lastMessageAt: number, ip: string, isAdmin: boolean }>} */
@@ -25,6 +26,15 @@ const recentMessages = []
 
 /** @type {Map<string, number>} ip -> bannedUntil timestamp */
 const bans = new Map()
+
+/** @type {Map<string, number>} ip -> last self-rename timestamp */
+const renameCooldowns = new Map()
+
+function getRenameAvailableAt(ip) {
+  const last = renameCooldowns.get(ip) || 0
+  const availableAt = last + RENAME_COOLDOWN_MS
+  return availableAt > Date.now() ? availableAt : 0
+}
 
 function getClientIp(socket) {
   const forwarded = socket.handshake.headers['x-forwarded-for']
@@ -144,7 +154,73 @@ io.on('connection', (socket) => {
     users.set(socket.id, user)
     broadcastPresence()
     broadcastAdminUsers()
-    ack?.({ ok: true, name: user.name })
+    ack?.({
+      ok: true,
+      name: user.name,
+      renameAvailableAt: getRenameAvailableAt(user.ip),
+    })
+  })
+
+  socket.on('chat:rename', (rawName, ack) => {
+    const user = users.get(socket.id)
+    if (!user?.name) {
+      ack?.({ ok: false, error: 'Join with a name first' })
+      return
+    }
+    if (user.isAdmin) {
+      ack?.({ ok: false, error: 'Admin name is fixed' })
+      return
+    }
+
+    const ban = isBanned(user.ip)
+    if (ban) {
+      ack?.({ ok: false, error: 'Banned', until: ban })
+      return
+    }
+
+    const availableAt = getRenameAvailableAt(user.ip)
+    if (availableAt) {
+      ack?.({
+        ok: false,
+        error: 'Rename cooldown',
+        renameAvailableAt: availableAt,
+      })
+      return
+    }
+
+    const nextName = String(rawName || '')
+      .trim()
+      .slice(0, 24)
+
+    if (!nextName) {
+      ack?.({ ok: false, error: 'Name is required' })
+      return
+    }
+
+    if (nextName.toLowerCase() === RESERVED_NAME) {
+      ack?.({ ok: false, error: 'That name is reserved' })
+      return
+    }
+
+    if (nextName === user.name) {
+      ack?.({ ok: false, error: 'Same name' })
+      return
+    }
+
+    const previous = user.name
+    user.name = nextName
+    users.set(socket.id, user)
+    renameCooldowns.set(user.ip, Date.now())
+
+    const nextAvailable = getRenameAvailableAt(user.ip)
+    socket.emit('chat:renamed', {
+      name: nextName,
+      previous,
+      renameAvailableAt: nextAvailable,
+    })
+    broadcastPresence()
+    broadcastAdminUsers()
+    ack?.({ ok: true, name: nextName, renameAvailableAt: nextAvailable })
   })
 
   socket.on('chat:message', (rawText, ack) => {

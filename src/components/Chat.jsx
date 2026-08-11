@@ -1,3 +1,4 @@
+import { Settings } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 function Bubble({ message, mine }) {
@@ -31,28 +32,65 @@ function Bubble({ message, mine }) {
   )
 }
 
+function formatWait(ms) {
+  const totalSec = Math.max(0, Math.ceil(ms / 1000))
+  const m = Math.floor(totalSec / 60)
+  const s = totalSec % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
 export function Chat({
   joined,
   name,
   messages,
   showRespectNote,
   bannedUntil,
+  renameAvailableAt,
   onSend,
   onRequestJoin,
+  onRename,
 }) {
   const [text, setText] = useState('')
   const [coolingDown, setCoolingDown] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [changingName, setChangingName] = useState(false)
+  const [nextName, setNextName] = useState('')
+  const [renameError, setRenameError] = useState('')
+  const [renameBusy, setRenameBusy] = useState(false)
+  const [now, setNow] = useState(Date.now())
   const endRef = useRef(null)
   const scrollRef = useRef(null)
   const stickToBottom = useRef(true)
+  const settingsRef = useRef(null)
 
   useEffect(() => {
     if (!stickToBottom.current) return
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages, showRespectNote])
 
+  useEffect(() => {
+    if (!settingsOpen) return
+    function onDocClick(e) {
+      if (!settingsRef.current?.contains(e.target)) {
+        setSettingsOpen(false)
+        setChangingName(false)
+        setRenameError('')
+      }
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [settingsOpen])
+
+  useEffect(() => {
+    if (!renameAvailableAt || renameAvailableAt <= Date.now()) return
+    const id = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [renameAvailableAt])
+
   const overLimit = text.length > 255
   const banned = bannedUntil > Date.now()
+  const renameLocked = renameAvailableAt > now
+  const renameWait = renameLocked ? renameAvailableAt - now : 0
 
   function updateText(value) {
     setText(value)
@@ -82,6 +120,43 @@ export function Chat({
 
     setCoolingDown(true)
     window.setTimeout(() => setCoolingDown(false), 1000)
+  }
+
+  async function handleRename(e) {
+    e.preventDefault()
+    if (!joined || renameBusy || renameLocked) return
+
+    const value = nextName.trim()
+    if (!value) {
+      setRenameError('Enter a name')
+      return
+    }
+    if (value.toLowerCase() === 'codvyn') {
+      setRenameError('That name is reserved')
+      return
+    }
+
+    setRenameBusy(true)
+    setRenameError('')
+    const res = await onRename(value)
+    setRenameBusy(false)
+
+    if (res?.ok) {
+      setChangingName(false)
+      setNextName('')
+      setSettingsOpen(false)
+      return
+    }
+
+    if (res?.error === 'Rename cooldown') {
+      setRenameError(`Wait ${formatWait((res.renameAvailableAt || 0) - Date.now())}`)
+    } else if (res?.error === 'That name is reserved') {
+      setRenameError(res.error)
+    } else if (res?.error === 'Same name') {
+      setRenameError('That is already your name')
+    } else {
+      setRenameError(res?.error || 'Could not change name')
+    }
   }
 
   return (
@@ -123,50 +198,133 @@ export function Chat({
         </div>
       </div>
 
-      <div className="pointer-events-auto mt-2">
-        <form
-          onSubmit={handleSubmit}
-          className={`flex items-center gap-2 rounded-full border bg-black/30 px-3 py-2 backdrop-blur-md transition-colors ${
-            overLimit
-              ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.45)]'
-              : 'border-white/20'
-          }`}
-        >
-          <input
-            value={text}
-            onChange={(e) => updateText(e.target.value)}
-            onPaste={(e) => {
-              const pasted = e.clipboardData?.getData('text') ?? ''
-              if (!pasted) return
-              e.preventDefault()
-              const el = e.currentTarget
-              const start = el.selectionStart ?? text.length
-              const end = el.selectionEnd ?? text.length
-              updateText(text.slice(0, start) + pasted + text.slice(end))
-            }}
-            onFocus={() => {
-              if (!joined && !banned) onRequestJoin()
-            }}
-            disabled={banned}
-            placeholder={
-              banned
-                ? 'Banned from chat…'
-                : coolingDown
-                  ? 'Wait a second…'
-                  : joined
-                    ? 'बातचीत…'
-                    : 'Enter your name to chat…'
-            }
-            className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/55 disabled:opacity-60"
-          />
+      <div className="pointer-events-auto relative mt-2" ref={settingsRef}>
+        {settingsOpen ? (
+          <div className="animate-soft-in absolute bottom-[calc(100%+10px)] left-0 z-30 w-[min(100%,280px)] rounded-2xl border border-white/20 bg-black/55 p-3 text-white shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-md">
+            {!joined ? (
+              <p className="text-sm text-white/80">Join chat first to manage your name.</p>
+            ) : (
+              <>
+                <p className="text-sm text-white/80">
+                  You are chatting as{' '}
+                  <span className="font-semibold text-white">‘{name}’</span>
+                </p>
+
+                {!changingName ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setChangingName(true)
+                      setNextName(name)
+                      setRenameError('')
+                    }}
+                    className="mt-3 w-full rounded-xl bg-white/15 px-3 py-2 text-sm font-medium transition hover:bg-white/25"
+                  >
+                    Change your name
+                  </button>
+                ) : (
+                  <form onSubmit={handleRename} className="mt-3 space-y-2">
+                    <input
+                      value={nextName}
+                      onChange={(e) => setNextName(e.target.value)}
+                      maxLength={24}
+                      disabled={renameLocked || renameBusy}
+                      placeholder="New name"
+                      className="w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm outline-none placeholder:text-white/40 focus:border-white/50 disabled:opacity-60"
+                      autoFocus
+                    />
+                    {renameLocked ? (
+                      <p className="text-[11px] text-white/75">
+                        You can change again in {formatWait(renameWait)}
+                      </p>
+                    ) : null}
+                    {renameError ? (
+                      <p className="text-[11px] text-red-200">{renameError}</p>
+                    ) : null}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setChangingName(false)
+                          setRenameError('')
+                        }}
+                        className="flex-1 rounded-xl border border-white/20 px-3 py-2 text-xs font-medium"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={renameLocked || renameBusy}
+                        className="flex-1 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-[var(--btn-ink)] disabled:opacity-50"
+                      >
+                        {renameBusy ? 'Saving…' : 'Save'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </>
+            )}
+          </div>
+        ) : null}
+
+        <div className="flex items-stretch gap-2">
           <button
-            type="submit"
-            disabled={coolingDown || overLimit || banned}
-            className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[var(--btn-ink)] transition hover:bg-white/90 disabled:opacity-50"
+            type="button"
+            aria-label="Chat settings"
+            onClick={() => {
+              setSettingsOpen((open) => !open)
+              setChangingName(false)
+              setRenameError('')
+            }}
+            className="flex aspect-square h-auto w-[42px] shrink-0 items-center justify-center self-stretch rounded-full border border-white/20 bg-black/30 text-white backdrop-blur-md transition hover:bg-black/45"
           >
-            Send
+            <Settings size={18} strokeWidth={2} />
           </button>
-        </form>
+
+          <form
+            onSubmit={handleSubmit}
+            className={`flex min-w-0 flex-1 items-center gap-2 rounded-full border bg-black/30 px-3 py-2 backdrop-blur-md transition-colors ${
+              overLimit
+                ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.45)]'
+                : 'border-white/20'
+            }`}
+          >
+            <input
+              value={text}
+              onChange={(e) => updateText(e.target.value)}
+              onPaste={(e) => {
+                const pasted = e.clipboardData?.getData('text') ?? ''
+                if (!pasted) return
+                e.preventDefault()
+                const el = e.currentTarget
+                const start = el.selectionStart ?? text.length
+                const end = el.selectionEnd ?? text.length
+                updateText(text.slice(0, start) + pasted + text.slice(end))
+              }}
+              onFocus={() => {
+                if (!joined && !banned) onRequestJoin()
+              }}
+              disabled={banned}
+              placeholder={
+                banned
+                  ? 'Banned from chat…'
+                  : coolingDown
+                    ? 'Wait a second…'
+                    : joined
+                      ? 'बातचीत…'
+                      : 'Enter your name to chat…'
+              }
+              className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/55 disabled:opacity-60"
+            />
+            <button
+              type="submit"
+              disabled={coolingDown || overLimit || banned}
+              className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[var(--btn-ink)] transition hover:bg-white/90 disabled:opacity-50"
+            >
+              Send
+            </button>
+          </form>
+        </div>
 
         {overLimit ? (
           <p className="mt-1.5 px-1 text-center text-[11px] font-medium text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">
