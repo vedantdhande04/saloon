@@ -66,6 +66,7 @@ function Login({ onAuth, error, busy, connected, socketUrl, onRetry }) {
 
 export default function App() {
   const socketRef = useRef(null)
+  const messagesEndRef = useRef(null)
   const [authed, setAuthed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -213,6 +214,10 @@ export default function App() {
     [users],
   )
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [messages])
+
   if (!authed) {
     return (
       <Login
@@ -227,8 +232,8 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-full p-4 sm:p-6">
-      <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden p-4 sm:p-6">
+      <header className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Saloon Admin</h1>
           <p className="text-sm text-[var(--muted)]">
@@ -245,8 +250,8 @@ export default function App() {
         </button>
       </header>
 
-      <div className="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
-        <section className="rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4">
+      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[1.1fr_1fr]">
+        <section className="min-h-0 overflow-y-auto rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4">
           <h2 className="mb-3 text-lg font-semibold">Live users ({visibleUsers.length})</h2>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[520px] text-left text-sm">
@@ -347,9 +352,9 @@ export default function App() {
           )}
         </section>
 
-        <section className="flex min-h-[520px] flex-col rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4">
-          <h2 className="mb-3 text-lg font-semibold">Messages</h2>
-          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+        <section className="flex min-h-0 flex-col rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4 max-xl:max-h-[55vh]">
+          <h2 className="mb-3 shrink-0 text-lg font-semibold">Messages</h2>
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1">
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -372,9 +377,10 @@ export default function App() {
                 <div className="whitespace-pre-wrap break-words">{message.text}</div>
               </div>
             ))}
+            <div ref={messagesEndRef} />
           </div>
 
-          <form onSubmit={sendAsCodvyn} className="mt-3 flex gap-2">
+          <form onSubmit={sendAsCodvyn} className="mt-3 flex shrink-0 gap-2">
             <input
               value={composer}
               onChange={(e) => setComposer(e.target.value)}

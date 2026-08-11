@@ -58,14 +58,17 @@ export function Chat({
   const [renameError, setRenameError] = useState('')
   const [renameBusy, setRenameBusy] = useState(false)
   const [now, setNow] = useState(Date.now())
-  const endRef = useRef(null)
   const scrollRef = useRef(null)
   const stickToBottom = useRef(true)
   const settingsRef = useRef(null)
 
   useEffect(() => {
     if (!stickToBottom.current) return
-    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    const el = scrollRef.current
+    if (!el) return
+    // Scroll only the chat list — scrollIntoView can move the page/visual
+    // viewport on mobile and yank the focused input behind the keyboard.
+    el.scrollTop = el.scrollHeight
   }, [messages, showRespectNote])
 
   useEffect(() => {
@@ -193,7 +196,6 @@ export function Chat({
               </div>
             ) : null}
 
-            <div ref={endRef} />
           </div>
         </div>
       </div>
