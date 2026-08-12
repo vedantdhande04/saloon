@@ -93,6 +93,20 @@ function makeMessage(name, text, at = Date.now()) {
   }
 }
 
+function makeBanAnnouncement(username, hours, reason = 'toxicity') {
+  const at = Date.now()
+  const label = hours === 1 ? '1 hour' : `${hours} hours`
+  const who = String(username || 'Someone').trim() || 'Someone'
+  const why = String(reason || 'toxicity').trim() || 'toxicity'
+  return {
+    id: `${at}-${Math.random().toString(36).slice(2, 8)}`,
+    type: 'ban',
+    name: 'system',
+    text: `${who} was banned for ${label} · ${why}`,
+    at,
+  }
+}
+
 function pushMessage(message) {
   recentMessages.push(message)
   if (recentMessages.length > MAX_MESSAGES) recentMessages.shift()
@@ -364,11 +378,18 @@ io.on('connection', (socket) => {
 
     const targetIp = String(payload?.ip || '').trim()
     const hours = Number(payload?.hours)
+    const reason = String(payload?.reason || 'toxicity').trim() || 'toxicity'
 
     if (!targetIp || !Number.isFinite(hours) || hours <= 0) {
       ack?.({ ok: false, error: 'ip and positive hours required' })
       return
     }
+
+    const matched = [...users.values()].filter((u) => u.ip === targetIp && !u.isAdmin)
+    const displayName =
+      matched.find((u) => u.name)?.name ||
+      String(payload?.name || '').trim() ||
+      'Someone'
 
     const until = Date.now() + hours * 60 * 60 * 1000
     bans.set(targetIp, until)
@@ -379,6 +400,9 @@ io.on('connection', (socket) => {
         io.sockets.sockets.get(id)?.disconnect(true)
       }
     }
+
+    pushMessage(makeBanAnnouncement(displayName, hours, reason))
+    io.to('admin').emit('admin:messages', { messages: recentMessages })
 
     broadcastPresence()
     broadcastAdminUsers()

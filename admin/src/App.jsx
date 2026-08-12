@@ -177,9 +177,9 @@ export default function App() {
     })
   }
 
-  function banIp(ip, hours) {
-    if (!ip || !window.confirm(`Ban ${ip} for ${hours} hour(s)?`)) return
-    socketRef.current?.emit('admin:ban', { ip, hours }, (res) => {
+  function banIp(ip, hours, name) {
+    if (!ip || !window.confirm(`Ban ${name || ip} for ${hours} hour(s)?`)) return
+    socketRef.current?.emit('admin:ban', { ip, hours, name, reason: 'toxicity' }, (res) => {
       if (!res?.ok) window.alert(res?.error || 'Ban failed')
     })
   }
@@ -306,7 +306,7 @@ export default function App() {
                             <button
                               key={hours}
                               type="button"
-                              onClick={() => banIp(user.ip, hours)}
+                              onClick={() => banIp(user.ip, hours, user.name)}
                               className="rounded-lg bg-[var(--danger)]/20 px-2 py-1 text-xs text-red-300 hover:bg-[var(--danger)]/30"
                             >
                               {hours}h
@@ -359,22 +359,39 @@ export default function App() {
               <div
                 key={message.id}
                 className={`rounded-xl px-3 py-2 text-sm ${
-                  message.name?.toLowerCase() === 'codvyn'
-                    ? 'bg-[var(--accent)] text-black'
-                    : 'bg-black/35'
+                  message.type === 'ban'
+                    ? 'bg-black/50 text-center text-xs text-[var(--muted)]'
+                    : message.name?.toLowerCase() === 'codvyn'
+                      ? 'bg-[var(--accent)] text-black'
+                      : 'bg-black/35'
                 }`}
               >
-                <div className="mb-1 flex items-center justify-between gap-2">
-                  <span className="font-semibold">{message.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => deleteMessage(message.id)}
-                    className="text-xs opacity-70 hover:opacity-100"
-                  >
-                    Delete
-                  </button>
-                </div>
-                <div className="whitespace-pre-wrap break-words">{message.text}</div>
+                {message.type === 'ban' ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex-1">{message.text}</span>
+                    <button
+                      type="button"
+                      onClick={() => deleteMessage(message.id)}
+                      className="shrink-0 text-xs opacity-70 hover:opacity-100"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <span className="font-semibold">{message.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => deleteMessage(message.id)}
+                        className="text-xs opacity-70 hover:opacity-100"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                    <div className="whitespace-pre-wrap break-words">{message.text}</div>
+                  </>
+                )}
               </div>
             ))}
             <div ref={messagesEndRef} />

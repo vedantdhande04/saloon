@@ -8,6 +8,18 @@ function keyboardOpen() {
 }
 
 function Bubble({ message, mine, animate }) {
+  if (message.type === 'ban') {
+    return (
+      <div
+        className={`self-center rounded-full bg-black/35 px-3 py-1.5 text-center text-[11px] text-white/90 ${
+          animate ? 'animate-fade-up' : ''
+        }`}
+      >
+        {message.text}
+      </div>
+    )
+  }
+
   const isCodvyn = String(message.name || '').trim().toLowerCase() === 'codvyn'
 
   return (
